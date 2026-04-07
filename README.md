@@ -10,11 +10,12 @@ LiteAgent is a lightweight CLI AI coding assistant for local development workflo
 ## What It Does
 
 - chat with an OpenAI-compatible model in the terminal
-- inspect files inside the current workspace
-- search text across the workspace
+- inspect, search, and patch files inside the current workspace
 - run shell commands with approval
-- preview diffs before writing files
 - save sessions locally and resume them later
+- discover skills from `skills/<name>/SKILL.md`
+- load MCP servers from config files and bridge `stdio` tools into the runtime
+- inspect skills, MCP servers, tools, and config sources from the CLI
 
 ## 30-Second Start
 
@@ -23,12 +24,13 @@ Requirements:
 - Node.js `>= 20`
 - npm
 
+Run:
+
 ```bash
 npm install
-npm run dev
 ```
 
-Create a local `.env` file in the project root:
+Create `.env` in the project root:
 
 ```env
 OPENAI_API_KEY="your-api-key"
@@ -38,34 +40,29 @@ ENABLE_MCP="false"
 ENABLE_SKILLS="false"
 ```
 
-Then run:
+Then start the REPL:
 
 ```bash
+npm run dev
+```
+
+And check the available commands:
+
+```text
 /help
 ```
 
-## Architecture
+## Use layered configuration
 
-LiteAgent keeps the runtime intentionally small:
+LiteAgent loads configuration in this order:
 
-- [src/index.ts](./src/index.ts) boots the CLI, configuration, session store, provider, and tool registry.
-- [src/core/agent-loop.ts](./src/core/agent-loop.ts) runs the assistant turn loop and routes tool calls.
-- [src/tools/default-tools.ts](./src/tools/default-tools.ts) wires the default workspace tools into the runtime.
+1. `process.env`
+2. project `.env`
+3. `~/.liteagent/settings.json`
 
-This layout keeps the MVP readable while leaving clear seams for more tools, providers, and extensions.
+That means shell variables override project config, and project config overrides user defaults.
 
-## Quick Start
-
-If you want the full setup flow:
-
-1. install dependencies
-2. create a local `.env` file in the project root
-3. run `npm run dev`
-4. use `/help` to inspect the available commands
-
-## Configuration
-
-The current runtime loads `.env` from the project root at startup. If the same variable already exists in `process.env`, the existing value wins.
+The supported keys are:
 
 | Variable | Required | Default | Purpose |
 | --- | --- | --- | --- |
@@ -74,16 +71,25 @@ The current runtime loads `.env` from the project root at startup. If the same v
 | `OPENAI_BASE_URL` | No | Empty | Base URL for an OpenAI-compatible endpoint |
 | `COMMAND_TIMEOUT_MS` | No | `15000` | Timeout for `run_command`, in milliseconds |
 | `MAX_COMMAND_OUTPUT` | No | `12000` | Maximum preserved command output length |
-| `ENABLE_MCP` | No | `false` | Enable the built-in MCP runtime extension prompt |
-| `ENABLE_SKILLS` | No | `false` | Enable the built-in skills runtime extension prompt |
+| `ENABLE_MCP` | No | `false` | Enable MCP discovery and tool registration |
+| `ENABLE_SKILLS` | No | `false` | Enable skill discovery in the runtime prompt |
 
-If you prefer temporary shell-only configuration, exporting the same variables manually still works.
+If you want machine-wide defaults, create `~/.liteagent/settings.json`:
 
-## Extension Import
+```json
+{
+  "apiKey": "your-api-key",
+  "model": "gpt-5.4",
+  "enableMcp": true,
+  "enableSkills": true
+}
+```
 
-LiteAgent now supports lightweight runtime discovery for both skills and MCP configuration.
+Use `/config-paths` inside the REPL to see which files were loaded and where each setting came from.
 
-Skills are discovered from:
+## Import skills from disk
+
+LiteAgent treats only one file as a skill entry:
 
 ```text
 skills/
@@ -91,16 +97,33 @@ skills/
     SKILL.md
 ```
 
-Only `skills/<name>/SKILL.md` is treated as a skill entry. Other markdown files under that directory can stay as references and are not registered as separate skills.
+`skills/<name>/SKILL.md` is the entry point. Other markdown files can stay in the same directory as references and will not be registered as separate skills.
 
-MCP configuration is discovered from either of these files in the project root:
+Current skill support includes:
 
-```text
-liteagent.mcp.json
-.mcp.json
+- runtime discovery for the system prompt when `ENABLE_SKILLS=true`
+- the built-in `load_skill` tool for loading a skill file by name
+- `liteagent skills list`
+- `liteagent skills show <name>`
+- `/skills` inside the REPL
+
+For local development, run the non-interactive commands through the dev entry:
+
+```bash
+npm run dev -- skills list
+npm run dev -- skills show your-skill
 ```
 
-A minimal example:
+## Load MCP servers from config
+
+LiteAgent reads MCP config from two layers:
+
+- user level: `~/.liteagent/mcp.json`
+- project level: `liteagent.mcp.json` or `.mcp.json`
+
+If the same server name exists in both places, the project-level config wins.
+
+Minimal example:
 
 ```json
 {
@@ -113,13 +136,79 @@ A minimal example:
 }
 ```
 
-Current scope:
+Current MCP behavior:
 
-- `ENABLE_SKILLS=true` makes LiteAgent discover `skills/<name>/SKILL.md` entries and inject them into the runtime system prompt
-- `ENABLE_MCP=true` makes LiteAgent read MCP server metadata from `liteagent.mcp.json` or `.mcp.json` and inject it into the runtime system prompt
-- this is runtime discovery, not full MCP tool registration yet
+- `stdio` servers can connect, list tools, and register tools into the runtime registry
+- registered MCP tools use the name format `mcp__<server>__<tool>`
+- `http` and `sse` configs are parsed and shown in status output, but they are not bridged into runtime tools yet
+- `ENABLE_MCP=true` is required for runtime tool registration
 
-## Relay Compatibility
+You can inspect MCP state without entering the REPL:
+
+```bash
+npm run dev -- mcp list
+npm run dev -- mcp tools
+```
+
+You can also inspect it inside the REPL with `/mcp`.
+
+## Inspect runtime state from the CLI
+
+LiteAgent now has two ways to inspect runtime state.
+
+Use slash commands inside the REPL:
+
+| Command | Purpose |
+| --- | --- |
+| `/help` | Show command help |
+| `/status` | Show current working directory and model |
+| `/model` | Show the active model |
+| `/sessions` | List local saved sessions |
+| `/resume [sessionId|index]` | Resume the latest session, a specific session ID, or a session by list index |
+| `/skills` | Show discovered skills |
+| `/mcp` | Show MCP server status and registered tools |
+| `/tools` | Show the current tool list |
+| `/config-paths` | Show config file paths and env sources |
+| `/new` | Start a new session |
+| `/exit` | Exit the CLI |
+
+Use top-level commands when you just want a quick check:
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev -- skills list` | List discovered skills |
+| `npm run dev -- skills show <name>` | Show one skill entry |
+| `npm run dev -- mcp list` | List discovered MCP servers |
+| `npm run dev -- mcp tools` | List tools exposed by supported MCP servers |
+
+## Built-in tools
+
+| Tool | Purpose |
+| --- | --- |
+| `list_files` | List files in the workspace |
+| `grep_files` | Search text in the workspace |
+| `read_file` | Read a workspace file |
+| `load_skill` | Read a discovered `SKILL.md` entry by name |
+| `run_command` | Execute a command in the workspace |
+| `patch_file` | Preview a diff and write after approval |
+| `ask_user` | Ask a follow-up question |
+
+When MCP registration is enabled, LiteAgent may also expose dynamic tools named like `mcp__filesystem__read_file`.
+
+## Architecture
+
+LiteAgent keeps the runtime intentionally small:
+
+- [src/index.ts](./src/index.ts) boots the CLI, configuration, session store, provider, and tool registry
+- [src/core/agent-loop.ts](./src/core/agent-loop.ts) runs the assistant turn loop and routes tool calls
+- [src/tools/default-tools.ts](./src/tools/default-tools.ts) wires the built-in workspace tools into the runtime
+- [src/extensions/skill-loader.ts](./src/extensions/skill-loader.ts) discovers `skills/<name>/SKILL.md`
+- [src/extensions/mcp-config.ts](./src/extensions/mcp-config.ts) normalizes user and project MCP config
+- [src/extensions/mcp-tool-bridge.ts](./src/extensions/mcp-tool-bridge.ts) turns supported MCP tools into runtime tools
+
+This layout keeps the MVP readable while leaving clear seams for more providers, richer MCP transports, and additional tooling.
+
+## Relay compatibility
 
 You can point LiteAgent to an OpenAI-compatible relay by setting `OPENAI_BASE_URL`.
 
@@ -130,29 +219,6 @@ Your relay should support:
 - the model name passed through `OPENAI_MODEL`
 
 If your relay only supports the Responses API and not Chat Completions, the current version will not work with it yet.
-
-## Slash Commands
-
-| Command | Purpose |
-| --- | --- |
-| `/help` | Show command help |
-| `/status` | Show current working directory and model |
-| `/model` | Show the active model name |
-| `/sessions` | List local saved sessions |
-| `/resume [sessionId|index]` | Resume the latest session, a specific session ID, or a session by list index |
-| `/new` | Start a new session |
-| `/exit` | Exit the CLI |
-
-## Built-in Tools
-
-| Tool | Purpose |
-| --- | --- |
-| `list_files` | List files in the workspace |
-| `grep_files` | Search text in the workspace |
-| `read_file` | Read a workspace file |
-| `run_command` | Execute a command in the workspace |
-| `patch_file` | Preview a diff and write after approval |
-| `ask_user` | Ask the user a follow-up question |
 
 ## Safety
 
@@ -183,14 +249,10 @@ This repository is still an MVP:
 
 - only the `openai` provider is implemented
 - Chat Completions is used instead of the Responses API
-- `skills` and `MCP` are now runtime-discovered extensions, but they are not full external plugin/tool registration systems yet
-- search is simple and better suited to small or medium repositories
-- the project is not packaged as a standalone binary yet
+- only `stdio` MCP servers can be bridged into runtime tools today
+- the project is not packaged as a standalone binary yet, so top-level commands are shown through `npm run dev -- ...`
 
-## Good Fit
+## Project docs
 
-LiteAgent is a good fit if you want to:
-
-- learn how a local coding assistant CLI can be structured
-- study a small tool-calling and approval loop
-- extend a compact TypeScript runtime with more tools or providers
+- [CONTRIBUTING.md](./CONTRIBUTING.md)
+- [CHANGELOG.md](./CHANGELOG.md)
