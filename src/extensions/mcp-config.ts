@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
+import { resolveConfigPaths } from "../config/path-resolution";
+
 export type McpTransport = "stdio" | "http" | "sse";
 
 type McpConfigShape = {
@@ -25,7 +27,7 @@ export type LoadedMcpConfig = {
   errors: string[];
 };
 
-const MCP_CONFIG_CANDIDATES = ["liteagent.mcp.json", ".mcp.json"];
+const PROJECT_MCP_CONFIG_CANDIDATES = ["liteagent.mcp.json", ".mcp.json"];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -110,55 +112,87 @@ function normalizeServerConfig(
   };
 }
 
-export function loadMcpConfig(cwd: string): LoadedMcpConfig {
-  for (const fileName of MCP_CONFIG_CANDIDATES) {
+function loadSingleMcpConfigFile(filePath: string, source: string): LoadedMcpConfig {
+  if (!existsSync(filePath)) {
+    return {
+      servers: [],
+      errors: [],
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(readFileSync(filePath, "utf8")) as McpConfigShape;
+    const rawServers = parsed.mcpServers ?? parsed.servers;
+
+    if (!isRecord(rawServers)) {
+      return {
+        source,
+        servers: [],
+        errors: [`${source} 中未找到有效的 mcpServers/servers 对象`],
+      };
+    }
+
+    const servers: NormalizedMcpServerConfig[] = [];
+    const errors: string[] = [];
+
+    for (const [name, config] of Object.entries(rawServers)) {
+      try {
+        servers.push(normalizeServerConfig(name, config, source));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        errors.push(message);
+      }
+    }
+
+    return {
+      source,
+      servers,
+      errors,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      source,
+      servers: [],
+      errors: [`解析 ${source} 失败: ${message}`],
+    };
+  }
+}
+
+function loadProjectMcpConfig(cwd: string): LoadedMcpConfig {
+  for (const fileName of PROJECT_MCP_CONFIG_CANDIDATES) {
     const filePath = path.join(cwd, fileName);
 
     if (!existsSync(filePath)) {
       continue;
     }
 
-    try {
-      const parsed = JSON.parse(readFileSync(filePath, "utf8")) as McpConfigShape;
-      const rawServers = parsed.mcpServers ?? parsed.servers;
-
-      if (!isRecord(rawServers)) {
-        return {
-          source: fileName,
-          servers: [],
-          errors: [`${fileName} 中未找到有效的 mcpServers/servers 对象`],
-        };
-      }
-
-      const servers: NormalizedMcpServerConfig[] = [];
-      const errors: string[] = [];
-
-      for (const [name, config] of Object.entries(rawServers)) {
-        try {
-          servers.push(normalizeServerConfig(name, config, fileName));
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          errors.push(message);
-        }
-      }
-
-      return {
-        source: fileName,
-        servers,
-        errors,
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return {
-        source: fileName,
-        servers: [],
-        errors: [`解析 ${fileName} 失败: ${message}`],
-      };
-    }
+    return loadSingleMcpConfigFile(filePath, fileName);
   }
 
   return {
     servers: [],
     errors: [],
+  };
+}
+
+export function loadMcpConfig(cwd: string, homeDir?: string): LoadedMcpConfig {
+  const paths = resolveConfigPaths({ cwd, homeDir });
+  const userConfig = loadSingleMcpConfigFile(paths.userMcpPath, "~/.liteagent/mcp.json");
+  const projectConfig = loadProjectMcpConfig(cwd);
+  const mergedServers = new Map<string, NormalizedMcpServerConfig>();
+
+  for (const server of userConfig.servers) {
+    mergedServers.set(server.name, server);
+  }
+
+  for (const server of projectConfig.servers) {
+    mergedServers.set(server.name, server);
+  }
+
+  return {
+    source: projectConfig.source ?? userConfig.source,
+    servers: [...mergedServers.values()],
+    errors: [...userConfig.errors, ...projectConfig.errors],
   };
 }

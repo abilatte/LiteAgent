@@ -14,7 +14,8 @@ import { readPrompt } from "./cli/io";
 import { createReplState, handleSlashCommand } from "./cli/repl";
 import { applySlashAction } from "./cli/session-actions";
 import { loadConfig } from "./config/config";
-import { bootstrapEnv } from "./config/env";
+import { bootstrapEnv, type BootstrapEnvResult } from "./config/env";
+import { resolveConfigPaths } from "./config/path-resolution";
 import { validateConfig } from "./config/validation";
 import { runAgentTurn } from "./core/agent-loop";
 import { createSessionManager } from "./core/session-manager";
@@ -30,6 +31,7 @@ import { createDefaultToolRegistry } from "./tools/default-tools";
 export function createApp(
   env: Record<string, string | undefined> = process.env,
   cwd = process.cwd(),
+  envState?: Pick<BootstrapEnvResult, "paths" | "sources">,
 ) {
   const config = loadConfig(env);
   const extensions = createRuntimeExtensionsState([
@@ -45,6 +47,8 @@ export function createApp(
     version: "0.1.0",
     config,
     validation: validateConfig(config),
+    configPaths: envState?.paths ?? resolveConfigPaths({ cwd }),
+    envSources: envState?.sources ?? {},
     extensions,
     systemPrompt: extensionPrompt
       ? `${baseSystemPrompt}\n\n${extensionPrompt}`
@@ -83,15 +87,15 @@ async function promptAsk(rl: readline.Interface, question: string): Promise<stri
 }
 
 export async function runCli(): Promise<number> {
-  const envResult = bootstrapEnv();
+  const cwd = process.cwd();
+  const envResult = bootstrapEnv({ cwd });
 
   if (envResult.error) {
     output.write(`读取 .env 失败：${envResult.error.message}\n`);
     return 1;
   }
 
-  const cwd = process.cwd();
-  const app = createApp(process.env, cwd);
+  const app = createApp(envResult.env, cwd, envResult);
 
   if (!app.validation.ok) {
     output.write(`${formatConfigIssueReport(app.validation.issues)}\n`);
