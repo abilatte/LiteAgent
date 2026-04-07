@@ -30,6 +30,12 @@ export type SlashCommandAction =
     }
   | {
       type: "list-mcp";
+    }
+  | {
+      type: "list-tools";
+    }
+  | {
+      type: "show-config-paths";
     };
 
 export type SlashCommandResult = {
@@ -66,6 +72,8 @@ export function handleSlashCommand(
           "/sessions - 查看本地历史会话列表",
           "/skills - 查看当前已发现的 skills",
           "/mcp - 查看当前 MCP server 与工具状态",
+          "/tools - 查看当前可用工具列表",
+          "/config-paths - 查看当前配置来源路径",
           "/resume [sessionId|序号] - 恢复最近会话、指定会话 ID 或列表序号",
           "/new - 开始新会话",
           "/exit - 退出程序",
@@ -192,6 +200,40 @@ export function handleSlashCommand(
         output: "已识别查看当前 MCP 状态请求。",
         action: {
           type: "list-mcp",
+        },
+      };
+    case "/tools":
+      if (args.length > 0) {
+        return {
+          handled: true,
+          shouldExit: false,
+          output: "用法: /tools",
+        };
+      }
+
+      return {
+        handled: true,
+        shouldExit: false,
+        output: "已识别查看当前可用工具列表请求。",
+        action: {
+          type: "list-tools",
+        },
+      };
+    case "/config-paths":
+      if (args.length > 0) {
+        return {
+          handled: true,
+          shouldExit: false,
+          output: "用法: /config-paths",
+        };
+      }
+
+      return {
+        handled: true,
+        shouldExit: false,
+        output: "已识别查看当前配置路径请求。",
+        action: {
+          type: "show-config-paths",
         },
       };
     case "/new":

@@ -19,6 +19,23 @@ type SessionActionHandlers = {
     connectedServers: string[];
     toolBindings: McpToolBridgeBinding[];
   }>;
+  listTools?: () => Promise<
+    Array<{
+      name: string;
+      description: string;
+      source: "local" | "mcp";
+      serverName?: string;
+    }>
+  >;
+  listConfigPaths?: () => Promise<{
+    userSettingsPath: string;
+    userMcpPath: string;
+    projectEnvPath: string;
+    projectMcpConfigPaths: string[];
+    projectSkillsDir: string;
+    loadedFiles: string[];
+    envSources: Record<string, string>;
+  }>;
   loadLatestSession: () => Promise<SessionRecord | null>;
   loadSessionById: (sessionId: string) => Promise<SessionRecord | null>;
   resetSession: (currentSession?: SessionRecord) => ResetSessionResult;
@@ -73,6 +90,34 @@ export async function applySlashAction(
     return {
       kind: "message",
       output: formatMcpList(mcp),
+    };
+  }
+
+  if (action.type === "list-tools") {
+    const tools = handlers.listTools ? await handlers.listTools() : [];
+
+    return {
+      kind: "message",
+      output: formatToolsList(tools),
+    };
+  }
+
+  if (action.type === "show-config-paths") {
+    const configPaths = handlers.listConfigPaths
+      ? await handlers.listConfigPaths()
+      : {
+          userSettingsPath: "",
+          userMcpPath: "",
+          projectEnvPath: "",
+          projectMcpConfigPaths: [],
+          projectSkillsDir: "",
+          loadedFiles: [],
+          envSources: {},
+        };
+
+    return {
+      kind: "message",
+      output: formatConfigPaths(configPaths),
     };
   }
 
@@ -239,6 +284,81 @@ function formatMcpList(input: {
   if (!input.enabled) {
     lines.push("");
     lines.push("当前 MCP 扩展未启用，这些 server 还不会自动参与运行时工具注册。");
+  }
+
+  return lines.join("\n");
+}
+
+function formatToolsList(
+  tools: Array<{
+    name: string;
+    description: string;
+    source: "local" | "mcp";
+    serverName?: string;
+  }>,
+): string {
+  if (tools.length === 0) {
+    return "当前暂无可用工具。";
+  }
+
+  const lines = ["当前可用工具", ""];
+
+  for (const [index, tool] of tools.entries()) {
+    lines.push(`${index + 1}. ${tool.name}`);
+    lines.push(`   来源：${tool.source === "local" ? "内置" : `MCP${tool.serverName ? ` / ${tool.serverName}` : ""}`}`);
+
+    if (tool.description) {
+      lines.push(`   ${tool.description}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+function formatConfigPaths(input: {
+  userSettingsPath: string;
+  userMcpPath: string;
+  projectEnvPath: string;
+  projectMcpConfigPaths: string[];
+  projectSkillsDir: string;
+  loadedFiles: string[];
+  envSources: Record<string, string>;
+}): string {
+  const lines = [
+    "当前配置路径",
+    "",
+    `用户 settings：${input.userSettingsPath || "未提供"}`,
+    `用户 mcp：${input.userMcpPath || "未提供"}`,
+    `项目 .env：${input.projectEnvPath || "未提供"}`,
+    `项目 skills：${input.projectSkillsDir || "未提供"}`,
+  ];
+
+  if (input.projectMcpConfigPaths.length > 0) {
+    lines.push(`项目 mcp：${input.projectMcpConfigPaths.join(", ")}`);
+  }
+
+  lines.push("");
+  lines.push("已加载文件");
+
+  if (input.loadedFiles.length === 0) {
+    lines.push("- 暂无");
+  } else {
+    for (const filePath of input.loadedFiles) {
+      lines.push(`- ${filePath}`);
+    }
+  }
+
+  lines.push("");
+  lines.push("环境变量来源");
+
+  const sourceEntries = Object.entries(input.envSources);
+
+  if (sourceEntries.length === 0) {
+    lines.push("- 暂无");
+  } else {
+    for (const [key, source] of sourceEntries) {
+      lines.push(`- ${key}: ${source}`);
+    }
   }
 
   return lines.join("\n");

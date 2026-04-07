@@ -31,7 +31,7 @@ import { createDefaultToolRegistry } from "./tools/default-tools";
 export function createApp(
   env: Record<string, string | undefined> = process.env,
   cwd = process.cwd(),
-  envState?: Pick<BootstrapEnvResult, "paths" | "sources">,
+  envState?: Pick<BootstrapEnvResult, "paths" | "sources" | "loadedFiles">,
 ) {
   const config = loadConfig(env);
   const extensions = createRuntimeExtensionsState([
@@ -49,6 +49,7 @@ export function createApp(
     validation: validateConfig(config),
     configPaths: envState?.paths ?? resolveConfigPaths({ cwd }),
     envSources: envState?.sources ?? {},
+    envLoadedFiles: envState?.loadedFiles ?? [],
     extensions,
     systemPrompt: extensionPrompt
       ? `${baseSystemPrompt}\n\n${extensionPrompt}`
@@ -192,6 +193,28 @@ export async function runCli(): Promise<number> {
                   toolBindings: mcpBridge?.toolBindings ?? [],
                 };
               },
+              listTools: async () =>
+                registry.list().map((tool) => {
+                  const binding = mcpBridge?.toolBindings.find((item) => item.bridgeToolName === tool.name);
+
+                  return {
+                    name: tool.name,
+                    description: tool.description,
+                    source: binding ? ("mcp" as const) : ("local" as const),
+                    serverName: binding?.serverName,
+                  };
+                }),
+              listConfigPaths: async () => ({
+                userSettingsPath: app.configPaths.userSettingsPath,
+                userMcpPath: app.configPaths.userMcpPath,
+                projectEnvPath: app.configPaths.projectEnvPath,
+                projectMcpConfigPaths: app.configPaths.projectMcpConfigPaths,
+                projectSkillsDir: app.configPaths.projectSkillsDir,
+                loadedFiles: app.envLoadedFiles,
+                envSources: Object.fromEntries(
+                  Object.entries(app.envSources).map(([key, source]) => [key, source ?? "unknown"]),
+                ),
+              }),
               loadLatestSession: async () => await sessionManager.loadLatestSession(),
               loadSessionById: async (sessionId) => await sessionManager.loadSessionById(sessionId),
               resetSession: (currentSession) => sessionManager.resetSession(currentSession),
