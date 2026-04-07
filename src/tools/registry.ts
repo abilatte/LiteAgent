@@ -7,6 +7,11 @@ export function createToolRegistry() {
     register(tool: ToolDefinition) {
       tools.set(tool.name, tool);
     },
+    registerMany(toolList: ToolDefinition[]) {
+      for (const tool of toolList) {
+        tools.set(tool.name, tool);
+      }
+    },
     get(name: string) {
       return tools.get(name);
     },

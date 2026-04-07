@@ -41,6 +41,12 @@ export type McpToolDefinition = {
   inputSchema?: object;
 };
 
+export type McpToolCallResult = {
+  content?: Array<Record<string, unknown>>;
+  structuredContent?: unknown;
+  isError?: boolean;
+};
+
 export type McpInitializeResult = {
   protocolVersion: string;
   capabilities: Record<string, unknown>;
@@ -376,6 +382,34 @@ export function createMcpClient(server: NormalizedMcpServerConfig, options: McpC
     return tools;
   }
 
+  async function callTool(
+    name: string,
+    args: Record<string, unknown> = {},
+  ): Promise<McpToolCallResult> {
+    await initialize();
+
+    const result = await request("tools/call", {
+      name,
+      arguments: args,
+    });
+
+    if (!isRecord(result)) {
+      throw new Error(`MCP server "${server.name}" 返回了无效的 tools/call 结果`);
+    }
+
+    const content = Array.isArray(result.content)
+      ? result.content.filter((item): item is Record<string, unknown> => isRecord(item))
+      : undefined;
+
+    return {
+      ...(content ? { content } : {}),
+      ...(result.structuredContent !== undefined
+        ? { structuredContent: result.structuredContent }
+        : {}),
+      ...(typeof result.isError === "boolean" ? { isError: result.isError } : {}),
+    };
+  }
+
   async function close() {
     closed = true;
 
@@ -407,6 +441,7 @@ export function createMcpClient(server: NormalizedMcpServerConfig, options: McpC
   return {
     initialize,
     listTools,
+    callTool,
     close,
   };
 }

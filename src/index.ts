@@ -21,6 +21,7 @@ import { createSessionManager } from "./core/session-manager";
 import { createSession } from "./core/session";
 import { buildExtensionSystemPrompt, createRuntimeExtensionsState } from "./extensions/base";
 import { createMcpExtension } from "./extensions/mcp";
+import { registerMcpTools } from "./extensions/mcp-tool-bridge";
 import { createSkillsExtension } from "./extensions/skills";
 import { createOpenAIProvider } from "./providers/openai";
 import { createSessionStore } from "./storage/session-store";
@@ -110,6 +111,12 @@ export async function runCli(): Promise<number> {
     confirm: async (subject) => await promptConfirm(rl, subject),
     ask: async (question) => await promptAsk(rl, question),
   });
+  const mcpBridge = app.config.enableMcp
+    ? await registerMcpTools(registry, {
+        cwd,
+        timeoutMs: app.config.commandTimeoutMs,
+      })
+    : undefined;
   const store = createSessionStore(path.join(cwd, ".data", "sessions"));
   const sessionManager = createSessionManager({
     cwd,
@@ -243,6 +250,7 @@ export async function runCli(): Promise<number> {
       }
     }
   } finally {
+    await mcpBridge?.close();
     rl.close();
   }
 
