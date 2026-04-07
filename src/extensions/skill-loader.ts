@@ -18,22 +18,24 @@ function parseFrontmatter(content: string): {
   description?: string;
   body: string;
 } {
-  if (!content.startsWith("---\n")) {
+  const normalizedContent = content.replace(/\r\n/g, "\n");
+
+  if (!normalizedContent.startsWith("---\n")) {
     return {
-      body: content.trim(),
+      body: normalizedContent.trim(),
     };
   }
 
-  const endIndex = content.indexOf("\n---\n", 4);
+  const endIndex = normalizedContent.indexOf("\n---\n", 4);
 
   if (endIndex === -1) {
     return {
-      body: content.trim(),
+      body: normalizedContent.trim(),
     };
   }
 
-  const frontmatterBlock = content.slice(4, endIndex);
-  const body = content.slice(endIndex + 5).trim();
+  const frontmatterBlock = normalizedContent.slice(4, endIndex);
+  const body = normalizedContent.slice(endIndex + 5).trim();
   const metadata = frontmatterBlock.split(/\r?\n/).reduce<Record<string, string>>((result, line) => {
     const separatorIndex = line.indexOf(":");
 

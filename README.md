@@ -164,7 +164,7 @@ Use slash commands inside the REPL:
 | `/status` | Show current working directory and model |
 | `/model` | Show the active model |
 | `/sessions` | List local saved sessions |
-| `/resume [sessionId|index]` | Resume the latest session, a specific session ID, or a session by list index |
+| `/resume [sessionId/index]` | Resume the latest session, a specific session ID, or a session by list index |
 | `/skills` | Show discovered skills |
 | `/mcp` | Show MCP server status and registered tools |
 | `/tools` | Show the current tool list |

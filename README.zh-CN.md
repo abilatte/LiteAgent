@@ -164,7 +164,7 @@ REPL 内使用 slash 命令：
 | `/status` | 查看当前工作目录和模型 |
 | `/model` | 查看当前模型 |
 | `/sessions` | 查看本地会话列表 |
-| `/resume [sessionId|序号]` | 恢复最近会话、指定会话 ID，或按列表序号恢复 |
+| `/resume [sessionId/序号]` | 恢复最近会话、指定会话 ID，或按列表序号恢复 |
 | `/skills` | 查看已发现的 skills |
 | `/mcp` | 查看 MCP server 状态和已注册工具 |
 | `/tools` | 查看当前工具列表 |
