@@ -1,5 +1,6 @@
 import type { ResetSessionResult } from "../core/session-manager";
 import type { RuntimeExtensionItem } from "../extensions/base";
+import type { McpToolBridgeBinding } from "../extensions/mcp-tool-bridge";
 import type { SessionSummary } from "../storage/session-store";
 import type { SessionRecord } from "../types";
 import type { SlashCommandAction } from "./repl";
@@ -10,6 +11,13 @@ type SessionActionHandlers = {
   listSkills: () => Promise<{
     enabled: boolean;
     items: RuntimeExtensionItem[];
+  }>;
+  listMcp?: () => Promise<{
+    enabled: boolean;
+    items: RuntimeExtensionItem[];
+    errors: string[];
+    connectedServers: string[];
+    toolBindings: McpToolBridgeBinding[];
   }>;
   loadLatestSession: () => Promise<SessionRecord | null>;
   loadSessionById: (sessionId: string) => Promise<SessionRecord | null>;
@@ -48,6 +56,23 @@ export async function applySlashAction(
     return {
       kind: "message",
       output: formatSkillsList(skills),
+    };
+  }
+
+  if (action.type === "list-mcp") {
+    const mcp = handlers.listMcp
+      ? await handlers.listMcp()
+      : {
+          enabled: false,
+          items: [],
+          errors: [],
+          connectedServers: [],
+          toolBindings: [],
+        };
+
+    return {
+      kind: "message",
+      output: formatMcpList(mcp),
     };
   }
 
@@ -162,6 +187,58 @@ function formatSkillsList(input: {
   if (!input.enabled) {
     lines.push("");
     lines.push("当前 Skills 扩展未启用，这些 skill 还不会自动参与运行时提示。");
+  }
+
+  return lines.join("\n");
+}
+
+function formatMcpList(input: {
+  enabled: boolean;
+  items: RuntimeExtensionItem[];
+  errors: string[];
+  connectedServers: string[];
+  toolBindings: McpToolBridgeBinding[];
+}): string {
+  if (input.items.length === 0) {
+    return input.enabled
+      ? "暂未发现 MCP server 配置。"
+      : "暂未发现 MCP server 配置，或 MCP 扩展尚未启用。";
+  }
+
+  const lines = ["当前 MCP 状态", ""];
+
+  for (const [index, item] of input.items.entries()) {
+    lines.push(`${index + 1}. ${item.name}`);
+
+    if (item.source) {
+      lines.push(`   来源：${item.source}`);
+    }
+
+    if (item.transport) {
+      lines.push(`   传输：${item.transport}`);
+    }
+
+    lines.push(`   状态：${input.connectedServers.includes(item.name) ? "已连接" : "未连接"}`);
+
+    const bindings = input.toolBindings.filter((binding) => binding.serverName === item.name);
+
+    if (bindings.length > 0) {
+      lines.push(`   已注册工具：${bindings.map((binding) => binding.bridgeToolName).join(", ")}`);
+    }
+  }
+
+  if (input.errors.length > 0) {
+    lines.push("");
+    lines.push("错误 / 警告");
+
+    for (const error of input.errors) {
+      lines.push(`- ${error}`);
+    }
+  }
+
+  if (!input.enabled) {
+    lines.push("");
+    lines.push("当前 MCP 扩展未启用，这些 server 还不会自动参与运行时工具注册。");
   }
 
   return lines.join("\n");

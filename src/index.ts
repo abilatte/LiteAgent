@@ -177,6 +177,17 @@ export async function runCli(): Promise<number> {
                   items: skillsExtension?.items ?? [],
                 };
               },
+              listMcp: async () => {
+                const mcpExtension = app.extensions.all.find((extension) => extension.name === "mcp");
+
+                return {
+                  enabled: mcpExtension?.enabled === true,
+                  items: mcpExtension?.items ?? [],
+                  errors: [...(mcpExtension?.errors ?? []), ...(mcpBridge?.errors ?? [])],
+                  connectedServers: mcpBridge?.connectedServers ?? [],
+                  toolBindings: mcpBridge?.toolBindings ?? [],
+                };
+              },
               loadLatestSession: async () => await sessionManager.loadLatestSession(),
               loadSessionById: async (sessionId) => await sessionManager.loadSessionById(sessionId),
               resetSession: (currentSession) => sessionManager.resetSession(currentSession),

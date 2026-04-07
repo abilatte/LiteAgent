@@ -27,6 +27,9 @@ export type SlashCommandAction =
     }
   | {
       type: "list-skills";
+    }
+  | {
+      type: "list-mcp";
     };
 
 export type SlashCommandResult = {
@@ -62,6 +65,7 @@ export function handleSlashCommand(
           "/model - 查看当前模型",
           "/sessions - 查看本地历史会话列表",
           "/skills - 查看当前已发现的 skills",
+          "/mcp - 查看当前 MCP server 与工具状态",
           "/resume [sessionId|序号] - 恢复最近会话、指定会话 ID 或列表序号",
           "/new - 开始新会话",
           "/exit - 退出程序",
@@ -171,6 +175,23 @@ export function handleSlashCommand(
         output: "已识别查看当前已发现 skills 请求。",
         action: {
           type: "list-skills",
+        },
+      };
+    case "/mcp":
+      if (args.length > 0) {
+        return {
+          handled: true,
+          shouldExit: false,
+          output: "用法: /mcp",
+        };
+      }
+
+      return {
+        handled: true,
+        shouldExit: false,
+        output: "已识别查看当前 MCP 状态请求。",
+        action: {
+          type: "list-mcp",
         },
       };
     case "/new":

@@ -11,8 +11,16 @@ type RegisterMcpToolsOptions = {
   timeoutMs: number;
 };
 
-type McpToolBridgeResult = {
-  registeredTools: string[];
+export type McpToolBridgeBinding = {
+  serverName: string;
+  toolName: string;
+  bridgeToolName: string;
+};
+
+export type McpToolBridgeResult = {
+  connectedServers: string[];
+  registeredTools: string[]; 
+  toolBindings: McpToolBridgeBinding[];
   errors: string[];
   close(): Promise<void>;
 };
@@ -44,7 +52,9 @@ export async function registerMcpTools(
   options: RegisterMcpToolsOptions,
 ): Promise<McpToolBridgeResult> {
   const configResult = loadMcpConfig(options.cwd);
+  const connectedServers: string[] = [];
   const registeredTools: string[] = [];
+  const toolBindings: McpToolBridgeBinding[] = [];
   const errors = [...configResult.errors];
   const clients: Array<ReturnType<typeof createMcpClient>> = [];
   const toolsToRegister: ToolDefinition[] = [];
@@ -63,10 +73,16 @@ export async function registerMcpTools(
     try {
       const remoteTools = await client.listTools();
       clients.push(client);
+      connectedServers.push(server.name);
 
       for (const remoteTool of remoteTools) {
         const bridgeToolName = buildBridgeToolName(server.name, remoteTool.name);
         registeredTools.push(bridgeToolName);
+        toolBindings.push({
+          serverName: server.name,
+          toolName: remoteTool.name,
+          bridgeToolName,
+        });
         toolsToRegister.push({
           name: bridgeToolName,
           description: remoteTool.description ?? `MCP tool ${server.name}/${remoteTool.name}`,
@@ -97,7 +113,9 @@ export async function registerMcpTools(
   registry.registerMany(toolsToRegister);
 
   return {
+    connectedServers,
     registeredTools,
+    toolBindings,
     errors,
     async close() {
       await Promise.all(clients.map(async (client) => await client.close()));
