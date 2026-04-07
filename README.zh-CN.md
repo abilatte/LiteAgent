@@ -32,7 +32,7 @@ npm run dev
 
 ```env
 OPENAI_API_KEY="your-api-key"
-OPENAI_MODEL="gpt-4.1-mini"
+OPENAI_MODEL="gpt-5.4"
 OPENAI_BASE_URL=""
 ```
 
@@ -68,7 +68,7 @@ LiteAgent 刻意保持一个较小的运行时边界：
 | 变量名 | 是否必填 | 默认值 | 作用 |
 | --- | --- | --- | --- |
 | `OPENAI_API_KEY` | 是 | 无 | OpenAI 或兼容中转站的 API Key |
-| `OPENAI_MODEL` | 否 | `gpt-4.1-mini` | 启动时使用的模型名 |
+| `OPENAI_MODEL` | 否 | `gpt-5.4` | 启动时使用的模型名 |
 | `OPENAI_BASE_URL` | 否 | 空 | OpenAI 兼容接口地址 |
 | `COMMAND_TIMEOUT_MS` | 否 | `15000` | `run_command` 的超时时间，单位毫秒 |
 | `MAX_COMMAND_OUTPUT` | 否 | `12000` | `run_command` 保留的最大输出长度 |

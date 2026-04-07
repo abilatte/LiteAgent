@@ -32,7 +32,7 @@ Create a local `.env` file in the project root:
 
 ```env
 OPENAI_API_KEY="your-api-key"
-OPENAI_MODEL="gpt-4.1-mini"
+OPENAI_MODEL="gpt-5.4"
 OPENAI_BASE_URL=""
 ```
 
@@ -68,7 +68,7 @@ The current runtime loads `.env` from the project root at startup. If the same v
 | Variable | Required | Default | Purpose |
 | --- | --- | --- | --- |
 | `OPENAI_API_KEY` | Yes | None | API key for OpenAI or an OpenAI-compatible relay |
-| `OPENAI_MODEL` | No | `gpt-4.1-mini` | Model name used at startup |
+| `OPENAI_MODEL` | No | `gpt-5.4` | Model name used at startup |
 | `OPENAI_BASE_URL` | No | Empty | Base URL for an OpenAI-compatible endpoint |
 | `COMMAND_TIMEOUT_MS` | No | `15000` | Timeout for `run_command`, in milliseconds |
 | `MAX_COMMAND_OUTPUT` | No | `12000` | Maximum preserved command output length |

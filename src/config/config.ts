@@ -34,7 +34,7 @@ export function loadConfig(env: EnvInput): RuntimeConfig {
     provider: "openai",
     apiKey: readString(env.OPENAI_API_KEY),
     baseUrl: readOptionalString(env.OPENAI_BASE_URL),
-    model: readString(env.OPENAI_MODEL, "gpt-4.1-mini"),
+    model: readString(env.OPENAI_MODEL, "gpt-5.4"),
     commandTimeoutMs: readNumber(env.COMMAND_TIMEOUT_MS, 15000),
     maxCommandOutput: readNumber(env.MAX_COMMAND_OUTPUT, 12000),
   };
