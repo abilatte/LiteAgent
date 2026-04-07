@@ -1,50 +1,16 @@
-import { existsSync, readFileSync } from "node:fs";
-import path from "node:path";
-
 import type { RuntimeExtension, RuntimeExtensionItem } from "./base";
-
-type McpConfigShape = {
-  mcpServers?: Record<string, Record<string, unknown>>;
-  servers?: Record<string, Record<string, unknown>>;
-};
-
-function discoverMcpServers(cwd: string): RuntimeExtensionItem[] {
-  const candidates = ["liteagent.mcp.json", ".mcp.json"];
-
-  for (const fileName of candidates) {
-    const filePath = path.join(cwd, fileName);
-
-    if (!existsSync(filePath)) {
-      continue;
-    }
-
-    try {
-      const parsed = JSON.parse(readFileSync(filePath, "utf8")) as McpConfigShape;
-      const servers = parsed.mcpServers ?? parsed.servers ?? {};
-
-      return Object.entries(servers).map(([name, config]) => ({
-        name,
-        source: fileName,
-        transport:
-          typeof config.transport === "string"
-            ? config.transport
-            : typeof config.url === "string"
-              ? "http"
-              : "stdio",
-      }));
-    } catch {
-      return [];
-    }
-  }
-
-  return [];
-}
+import { loadMcpConfig } from "./mcp-config";
 
 export function createMcpExtension(
   enabled: boolean,
   cwd = process.cwd(),
 ): RuntimeExtension {
-  const items = enabled ? discoverMcpServers(cwd) : [];
+  const configResult = enabled ? loadMcpConfig(cwd) : { servers: [], errors: [] };
+  const items: RuntimeExtensionItem[] = configResult.servers.map((server) => ({
+    name: server.name,
+    source: server.source,
+    transport: server.transport,
+  }));
 
   return {
     name: "mcp",
@@ -62,5 +28,6 @@ export function createMcpExtension(
           "If MCP-backed capabilities are available in the runtime, prefer using them through the registered extension surface instead of inventing unavailable tools.",
         ].join(" ")
       : undefined,
+    errors: enabled ? configResult.errors : undefined,
   };
 }
